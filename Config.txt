@@ -1,0 +1,4 @@
+SaveDirectory::C:/RAREGENDARY/osu/Songs
+ApiV1::b0b5ed31e20557a3a385c1b48ab0dea9ac6ab0a4
+
+AutoUpdate::1
