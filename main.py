@@ -677,14 +677,17 @@ class App(customtkinter.CTk):
     def on_closing(self, event=0):
         self.destroy()
     def OriginalDataExtract(self):
-        if self.ModeType.get()=='1':
-            return pd.read_csv('data/standard.csv',encoding='utf-8')
-        if self.ModeType.get()=='2':
-            return pd.read_csv('data/Taiko.csv', encoding='utf-8')
-        if self.ModeType.get()=='3':
-            return pd.read_csv('data/CtB.csv', encoding='utf-8')
-        if self.ModeType.get()=='4':
-            return pd.read_csv('data/osu!mania.csv', encoding='utf-8')
+        try:
+            if self.ModeType.get()=='1':
+                return pd.read_csv('data/standard.csv',encoding='utf-8')
+            if self.ModeType.get()=='2':
+                return pd.read_csv('data/Taiko.csv', encoding='utf-8')
+            if self.ModeType.get()=='3':
+                return pd.read_csv('data/CtB.csv', encoding='utf-8')
+            if self.ModeType.get()=='4':
+                return pd.read_csv('data/osu!mania.csv', encoding='utf-8')
+        except:
+            pass
     def FilterdfData(self):
         if self.Status.get() == '2':
             self.OriginalData=self.OriginalData[self.OriginalData['State']==1]
@@ -705,7 +708,10 @@ class App(customtkinter.CTk):
                 return False
 
         temptime = time.time()
-        self.df=self.OriginalData.copy()
+        try:
+            self.df=self.OriginalData.copy()
+        except:
+            self.df=pd.DataFrame()
         self.cleardata()
         #date
         self.filter_By_Date(self.MinDate.get(),self.MaxDate.get())
@@ -820,21 +826,32 @@ class App(customtkinter.CTk):
     def check_matching(self):
         for k,v in self.df.items():
             if k == "beatmapset_id":
+                temp = len(set(v))
                 self.DownloadSongsList = list(set(v)-set(self.Songs))
                 self.LabelMatching.configure(text=f"Matching Sets:{len(set(self.Songs)-(set(self.Songs)-set(v)))}")
         self.LabelMissing.configure(text=f"Missing Sets:{len(self.DownloadSongsList)}")
+        self.ProgressBar.set(1 - (len(self.DownloadSongsList) / temp))
+        try:
+            self.LabelDownloadPerc.configure(text=f'{round((1 - (len(self.DownloadSongsList) / temp))*100, 1)}%')
+        except:
+            self.LabelDownloadPerc.configure(text=f'100%')
+    def GetLabelMatching(self):
+        return self.LabelMatching.text
     def GetDownloadList(self):
         return [self.DownloadSongsList[x:x + 5]for x in range(0, len(self.DownloadSongsList), 5)]
     def DownloadMaps(self):
         self.DownloadSongsList.sort()
-        DownloadThread= threading.Thread(target=StartDownload,args=(self.api2,self.folder_selected))
+        DownloadThread= threading.Thread(target=StartDownload,args=(self.api,self.folder_selected))
         DownloadThread.start()
-    def SetDownloaded(self):
-        self.downloadedMaps+=1
-    def Progress(self):
-        self.LabelMissing.configure(text=f"Missing Sets:{len(self.DownloadSongsList)-self.downloadedMaps}")
-        self.ProgressBar.set(self.downloadedMaps/len(self.DownloadSongsList))
-        self.LabelDownloadPerc.configure(text=f'{round((self.downloadedMaps/len(self.DownloadSongsList))*100,1)}%')
+    # def SetDownloaded(self):
+    #     self.downloadedMaps+=1
+    # def Progress(self):
+    #     a= int(self.GetLabelMatching().split(':')[1])
+    #     b= len(self.DownloadSongsList)
+    #     self.LabelMissing.configure(text=f"Missing Sets:{a-b}")
+    #     print(a,b)
+    #     self.ProgressBar.set(1-(b/a))
+    #     self.LabelDownloadPerc.configure(text=f'{round((b/a)*100,1)}%')
     def ProgressFinish(self):
         self.LabelMissing.configure(text=f"Missing Sets:{0}")
         self.ProgressBar.set(1)
@@ -867,13 +884,15 @@ def StartDownload(api,folder):
         folder+="/"
     else:
         folder = "Downloads/"
+    i=0
     for Col in DownloadList:
+        i += len(Col)
         for mapset in Col:
             download_thread = threading.Thread(target=download,
                                                args=(api + str(mapset), folder + str(mapset)+' SBD' + '.osz'))
             download_thread.start()
         download_thread.join()
-        app.Progress()
+        app.AnalyzeMySongs()
     app.ProgressFinish()
 
 def download(link, filelocation):
@@ -882,8 +901,6 @@ def download(link, filelocation):
         for chunk in r.iter_content(1024):
             if chunk:
                 f.write(chunk)
-
-    app.SetDownloaded()
 def createNewDownloadThread(link, filelocation):
      download_thread = threading.Thread(target=download, args=(link,filelocation))
      download_thread.start()
